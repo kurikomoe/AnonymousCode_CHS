@@ -107,23 +107,23 @@ public:
     }
 
     template<typename T>
-    void debug(const T& msg, const std::wstring& tag = L"") { write_line(tag, msg, LogLevel::Debug); }
+    void debug(const T& msg, std::wstring_view tag = L"") { write_line(tag, msg, LogLevel::Debug); }
 
     template<typename T>
-    void trace(const T& msg, const std::wstring& tag = L"") { write_line(tag, msg, LogLevel::Trace); }
+    void trace(const T& msg, std::wstring_view tag = L"") { write_line(tag, msg, LogLevel::Trace); }
 
     template<typename T>
-    void info(const T& msg, const std::wstring& tag = L"") { write_line(tag, msg, LogLevel::Info); }
+    void info(const T& msg, std::wstring_view tag = L"") { write_line(tag, msg, LogLevel::Info); }
 
     template<typename T>
-    void error(const T& msg, const std::wstring& tag = L"") { write_line(tag, msg, LogLevel::Error); }
+    void error(const T& msg, std::wstring_view tag = L"") { write_line(tag, msg, LogLevel::Error); }
 
     template<typename T>
-    void warn(const T& msg, const std::wstring& tag = L"") { write_line(tag, msg, LogLevel::Warn); }
+    void warn(const T& msg, std::wstring_view tag = L"") { write_line(tag, msg, LogLevel::Warn); }
 
 private:
     template<typename T>
-    void write_line(const std::wstring& tag, const T& msg, LogLevel level) {
+    void write_line(std::wstring_view tag, const T& msg, LogLevel level) {
         if (!isInitialized || level < level_) { return; }
 
         std::wstring _msg;
