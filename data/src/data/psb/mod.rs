@@ -106,6 +106,11 @@ py_enum! {
 }
 
 
+struct SharedData {
+    header: PsbHeader,
+    string_offsets: PsbArray,
+    names: PsbNames,
+}
 
 
 #[derive(BinRead, Derivative, Clone)]
@@ -117,6 +122,7 @@ pub struct Psb {
     #[derivative(Debug = "ignore")]
     #[br(seek_before = SeekFrom::Start(header.offset_strings as u64))]
     string_offsets: PsbArray,
+    // TODO(Kuriko): Maybe?
     // strings: Vec<String>,
 
     // FIXME(kuriko): We currently not support old versions.
@@ -128,7 +134,13 @@ pub struct Psb {
     pub resources: PsbResources,
 
     #[br(seek_before = SeekFrom::Start(header.offset_entries as u64))]
-    #[br(args { global_names: Arc::new(names.clone()) })]
+    #[br(args {
+        shared: Arc::new(SharedData {
+            header: header.clone(),
+            string_offsets: string_offsets.clone(),
+            names: names.clone(),
+        }),
+    })]
     pub entries: PsbEntry,
 }
 

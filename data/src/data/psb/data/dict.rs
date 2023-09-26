@@ -5,13 +5,15 @@ use std::sync::Arc;
 use binrw::{BinRead, BinResult};
 use derivative::Derivative;
 
-use crate::data::psb::{PsbNames, PsbArray, PsbEntry, entry::PsbEntryBinReadArgs};
+use crate::data::psb::{PsbNames, PsbArray, PsbEntry, entry::PsbEntryBinReadArgs, PsbHeader, SharedData};
 
 
 #[derive(BinRead, Clone)]
 #[derive(Derivative)]
 #[derivative(Debug)]
-#[br(import(global_names: Arc <PsbNames>))]
+#[br(import{
+    shared: Arc<SharedData>,
+})]
 pub struct PsbDict {
     #[derivative(Debug = "ignore")]
     pub names: PsbArray,
@@ -19,26 +21,26 @@ pub struct PsbDict {
     #[derivative(Debug = "ignore")]
     offsets: PsbArray,
 
-    #[br(args(& names, & offsets, Arc::clone(& global_names)))]
+    #[br(args(&names, &offsets, shared))]
     #[br(parse_with = PsbDict::parser)]
     pub data: HashMap<String, PsbEntry>,
 }
 
 impl PsbDict {
     #[binrw::parser(reader, endian)]
-    fn parser(names: &PsbArray, offsets: &PsbArray, global_names: Arc<PsbNames>) -> BinResult<HashMap<String, PsbEntry>> {
+    fn parser(names: &PsbArray, offsets: &PsbArray, shared: Arc<SharedData>) -> BinResult<HashMap<String, PsbEntry>> {
         let cur_pos = reader.stream_position()?;
 
         let args = PsbEntryBinReadArgs::builder()
-            .global_names(Arc::clone(&global_names))
+            .shared(shared.clone())
             .finalize();
 
         let mut mm = HashMap::with_capacity(names.len());
 
         for i in 0..names.len() {
             let name_idx = names[i] as usize;
-            assert!(name_idx < global_names.len(), "name index out of range");
-            let name = &global_names[name_idx];
+            assert!(name_idx < shared.names.len(), "name index out of range");
+            let name = &shared.names[name_idx];
 
             assert!(i < offsets.len(), "offset index out of range");
             let offset = offsets[i] as u64;
