@@ -1,7 +1,25 @@
+pack_test:
+  cargo run -- \
+    --key 5fWhAHt4zVn2X  --encrypt-key "「How's it going to end?」" \
+    ./resources/motion_info.psb.m \
+    ./resources/scenario_info.psb.m \
+    ./resources/config_info.psb.m \
+    ./resources/script_info.psb.m
+
+pack:
+  cargo run --release -- \
+    --key 5fWhAHt4zVn2X  --encrypt-key "「How's it going to end?」" \
+    ./resources/motion_info.psb.m \
+    ./resources/scenario_info.psb.m \
+    ./resources/config_info.psb.m \
+    ./resources/script_info.psb.m
+
 build:
   cargo build
-  cargo build --release
+
+release:
+  cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release
 
 
 test:
-  cargo test psb
+  cargo test

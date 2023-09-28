@@ -9,7 +9,20 @@ pub mod data;
 
 pub mod utils;
 
-pub extern "C" fn load_config() -> i32 {
+#[cxx::bridge(namespace = "moe::kuriko::rust")]
+mod ffi {
+
+    extern "Rust" {
+
+        fn load_resource_dat() -> i32;
+
+    }
+
+}
+
+/// Load resource dat from current folder.
+pub fn load_resource_dat() -> i32 {
 
     0
 }
+

@@ -10,12 +10,14 @@ use binrw::{BinRead, BinWrite};
 use binrw::io::BufReader;
 use bytes::Bytes;
 use clap::Parser;
+use dbg_hex::dbg_hex;
 use data::data::context::Context;
 use data::data::{mdf, psb};
 use data::data::psb::PsbObject;
 
 use derivative::Derivative;
 use log::debug;
+use regex::Regex;
 use data::data::resource::{FileEntry, Resource};
 
 use data::utils;
@@ -23,16 +25,24 @@ use data::utils;
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
+    /// Key for psb files
     #[arg(short, long)]
     key: String,
 
+    /// Key for output file
     #[arg(short, long)]
     encrypt_key: Option<String>,
 
+    /// *_config.psb.m to be packed together
     inputs: Vec<PathBuf>,
 
+    /// Output file
     #[arg(short, long, default_value_os_t=PathBuf::from("resource.dat"))]
     out: PathBuf,
+
+    /// Only pack files in this list
+    #[arg(short, long)]
+    file_lists: Option<PathBuf>,
 }
 
 fn main() -> Result<()> {
@@ -49,9 +59,15 @@ fn main() -> Result<()> {
         ..Default::default()
     };
 
+    let pat = Regex::new(r"(.+)_info\.psb\.m$")?;
+
     for input in args.inputs {
+        // motion.psb.m
         let file = input.file_name().unwrap().to_str().unwrap();
-        debug!("Processing {}", file);
+
+        let base_name = pat.captures(file).unwrap().get(1).unwrap().as_str();
+
+        debug!("Processing {file}, base: {base_name}");
 
         let mut ctx = Context {
             key: &key,
@@ -66,8 +82,16 @@ fn main() -> Result<()> {
         let mut br = Cursor::new(&mut psb);
         let psb = psb::Psb::read(&mut br)?;
 
-        utils::collect_files(resource.add_new_path(input), &psb.entries, &mut resource)?;
+        // let base = input.file_name().unwrap().to_str().unwrap();
+        resource.add_base(base_name.to_string(), input.clone());
+        utils::collect_files(
+            base_name,
+            &psb.entries,
+            &mut resource,
+        )?;
     }
+
+    resource.calc_offsets();
 
     dbg!(&resource);
 

@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::iter::Iterator;
 
 use anyhow::Result;
-use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, until_eof};
+use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt, helpers::until_eof};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use derivative::Derivative;
 use itertools::Itertools;

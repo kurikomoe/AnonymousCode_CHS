@@ -1,36 +1,79 @@
 #![allow(clippy::ptr_arg)]
 
-use crate::utils::{self, consts};
+use crate::utils::{self, consts, get_body_from_info};
 use crate::utils::{generate_xor_key_from_seed, xor_data};
+use std::io::{Read, Seek};
+use std::io::SeekFrom;
 use anyhow::Result;
 use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt};
 use bytes::Bytes;
 use derivative::Derivative;
 use secrecy::Secret;
-use std::collections::HashMap;
-use std::io::{BufWriter, Cursor};
+use std::fs::File;
+use std::io::{BufReader, BufWriter, Cursor};
 use std::path::PathBuf;
+use indexmap::IndexMap;
 
 use super::helper::{KBuf, KString};
+
+
+static mut FILE_ENTRY_COUNTER: u32 = 0;
 
 #[binrw]
 #[derive(Debug, Clone)]
 pub struct FileEntry {
-    pub base_file: KString,
+    pub uid: u32,
+
+    pub base: KString,
+
     pub name: KString,
-    pub offset: i32,
-    pub size: i32,
+
+    pub offset: u32,
+    pub size: u32,
+
+    pub real_offset: u32,
 }
+
+impl FileEntry {
+    pub fn new(base: String, name: String, offset: u32, size: u32) -> Self {
+        let idx = unsafe { FILE_ENTRY_COUNTER += 1; FILE_ENTRY_COUNTER};
+
+        Self {
+            uid: idx,
+            name: name.into(),
+            base: base.into(),
+            offset,
+            size,
+            real_offset: 0,
+        }
+
+    }
+}
+
+
+/*
+    ref: motion/ac_logo.psb.m
+
+    base_name: motion
+    filename: ac_logo.psb.m
+
+    offset: 0xaaaa
+    size:   0xbbbb
+    -> uniq_id: 0xccc
+
+    file -> uniq_id
+ */
 
 #[binrw]
 #[brw(little)]
 #[derive(Debug, Clone, Default)]
 pub struct Resource {
-    #[brw(ignore)]
-    pub base_dirs: Vec<PathBuf>,
+    #[bw(assert(is_finished == b"DAT1"))]
+    pub is_finished: [u8; 4],
 
+    // "motion" => name idx
     #[brw(ignore)]
-    pub base_file: HashMap<String, usize>,
+    pub base_files: IndexMap<String, PathBuf>,
 
     #[br(parse_with = Resource::read_key)]
     #[bw(write_with = Resource::write_key)]
@@ -39,20 +82,33 @@ pub struct Resource {
     #[bw(calc = files.len() as u32)]
     pub file_cnt: u32,
 
+    /// motion/ac_logo.psb.m => FileEntry
     #[bw(args(&key))]
     #[bw(write_with = Resource::write_files)]
     #[br(args(&key, file_cnt as usize))]
     #[br(parse_with = Resource::read_files)]
-    pub files: HashMap<String, FileEntry>,
+    pub files: IndexMap<String, FileEntry>,
 
-    #[brw(ignore)]
-    pub files_in_resource: HashMap<String, FileEntry>,
+    #[bw(args(&key, &base_files, &files))]
+    #[bw(write_with = Resource::write_data)]
+    pub raw_data: (),
 }
 
 impl Resource {
-    pub fn add_new_path(&mut self, path: PathBuf) -> usize {
-        self.base_dirs.push(path);
-        self.base_dirs.len() - 1
+    pub fn add_base(&mut self, base_file_name: String, base_file_path: PathBuf) {
+        self.base_files.insert(base_file_name, base_file_path);
+    }
+
+    pub fn calc_offsets(&mut self) -> u32 {
+        self.is_finished.copy_from_slice(b"DAT1");
+
+        let mut offset = 0;
+        for v in self.files.values_mut() {
+            v.real_offset = offset;
+            offset += v.size;
+        }
+
+        offset
     }
 }
 
@@ -82,13 +138,15 @@ impl Resource {
     }
 
     #[binrw::writer(writer, endian)]
-    fn write_files(files: &HashMap<String, FileEntry>, key: &str) -> BinResult<()> {
-        let keys = utils::generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
+    fn write_files(files: &IndexMap<String, FileEntry>, key: &str) -> BinResult<()> {
+        let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
 
+        let mut offset = 0;
         for (key, value) in files.iter() {
             let key = KString::from(key.clone());
             let mut buf = Vec::new();
             let mut bw = Cursor::new(&mut buf);
+
             key.write_le(&mut bw)?;
             value.write_le(&mut bw)?;
 
@@ -101,10 +159,10 @@ impl Resource {
     }
 
     #[binrw::parser(reader, endian)]
-    fn read_files(key: &String, cnt: usize) -> BinResult<HashMap<String, FileEntry>> {
-        let keys = utils::generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
+    fn read_files(key: &String, cnt: usize) -> BinResult<IndexMap<String, FileEntry>> {
+        let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
 
-        let mut ret = HashMap::new();
+        let mut ret = IndexMap::new();
 
         for _ in 0..cnt {
             let mut buf = KBuf::read_le(reader)?;
@@ -119,6 +177,32 @@ impl Resource {
 
         Ok(ret)
     }
+
+    #[binrw::writer(writer, endian)]
+    fn write_data(
+        _: &(),
+        key: &String,
+        base_files: &IndexMap<String, PathBuf>,
+        files: &IndexMap<String, FileEntry>
+    ) -> BinResult<()> {
+        let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
+
+        for (file, entry) in files.iter() {
+            let FileEntry { uid, base, name, offset, size, mut real_offset } = &entry;
+
+            let path = base_files.get(&base.data).expect("base file not found");
+            let path = get_body_from_info(path).unwrap();
+
+            let mut file = File::open(&path)?;
+            file.seek(SeekFrom::Start(*offset as u64))?;
+            let mut buf = vec![0u8; *size as usize];
+            file.read_exact(&mut buf)?;
+            xor_data(&mut buf, &keys);
+            writer.write_le(&buf)?;
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -129,6 +213,7 @@ mod test {
     use crate::data::psb::Psb;
     use binrw::io::BufReader;
     use std::io::{BufWriter, Cursor};
+    use dbg_hex::dbg_hex;
 
     #[test]
     fn test_rw() -> Result<()> {
@@ -162,10 +247,13 @@ mod test {
         };
 
         {
-            utils::collect_files(resource.add_new_path(mdf_path), &psb.entries, &mut resource)?;
+            resource.add_base("motion".to_string(), mdf_path);
+            utils::collect_files("motion", &psb.entries, &mut resource)?;
 
             let file = std::fs::File::create(&res_path)?;
             let mut writer = BufWriter::new(file);
+
+            resource.calc_offsets();
             resource.write(&mut writer)?;
         }
 
@@ -174,8 +262,6 @@ mod test {
             let mut reader = BufReader::new(file);
             Resource::read(&mut reader)?
         };
-
-        dbg!(&res2);
 
         Ok(())
     }

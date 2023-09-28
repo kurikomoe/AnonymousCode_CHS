@@ -1,7 +1,7 @@
 use std::io::{Cursor, Read, Seek, SeekFrom, Write};
 
 use anyhow::Result;
-use binrw::{BinRead, BinReaderExt, binrw, BinWrite, BinWriterExt, until_eof};
+use binrw::{BinRead, BinReaderExt, binrw, BinWrite, BinWriterExt, helpers::until_eof};
 use byteorder::{ReadBytesExt, WriteBytesExt};
 use dbg_hex::dbg_hex;
 use encoding_rs::*;

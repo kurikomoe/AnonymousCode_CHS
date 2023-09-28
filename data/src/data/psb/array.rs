@@ -34,6 +34,8 @@ impl Index<usize> for PsbArray {
 
 impl PsbArray {
     pub fn len(&self) -> usize { self.length }
+    pub fn is_empty(&self) -> bool { self.len() == 0 }
+
     #[binrw::parser(reader, endian)]
     pub fn get_array_length() -> BinResult<usize> {
         let n = <u8>::read_options(reader, endian, ())?;
