@@ -7,6 +7,8 @@ use anyhow::Result;
 pub mod data;
 
 
+pub mod utils;
+
 pub extern "C" fn load_config() -> i32 {
 
     0

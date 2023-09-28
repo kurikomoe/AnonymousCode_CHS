@@ -145,28 +145,38 @@ pub struct Psb {
 }
 
 
+
 #[cfg(test)]
 mod test {
-    use std::io::BufReader;
+    use std::io::{BufReader, Cursor};
     use std::path::PathBuf;
 
     use dbg_hex::dbg_hex;
+    use crate::data::context::Context;
+    use crate::data::mdf::Mdf;
 
     use super::*;
 
     #[test]
     fn test_psb() -> Result<()> {
-        let mut d = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        d.push("resources");
-        d.push("motion_info.psb.m.raw");
+        let mut mdf_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        mdf_path.push("resources");
+        mdf_path.push("motion_info.psb.m");
 
-        let file = std::fs::File::open(&d).unwrap();
+        let file = std::fs::File::open(&mdf_path).unwrap();
         let mut buf = BufReader::new(file);
 
-        let psb = Psb::read(&mut buf)?;
+        let mdf = Mdf::read(&mut buf)?;
 
-        dbg_hex!(&psb);
+        let mut ctx = Context {
+            key: "5fWhAHt4zVn2X",
+            mdf_key: Some("5fWhAHt4zVn2Xmotion_info.psb.m".to_owned()),
+            ..Default::default()
+        };
 
+        let psb = mdf.convert_to_psb(&mut ctx, true)?;
+        let mut cursor = Cursor::new(psb);
+        let psb = Psb::read(&mut cursor)?;
 
         Ok(())
     }

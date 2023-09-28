@@ -11,6 +11,8 @@ use crate::data::psb::PsbArray;
 use crate::data::read_and_unpack;
 use dbg_hex::dbg_hex;
 use num_traits::FromBytes;
+use anyhow::{anyhow, Result};
+use cxx::T;
 
 use super::PsbEnum;
 use super::names::PsbNames;
@@ -126,6 +128,73 @@ pub enum PsbObject {
 
     Unknown,
 }
+
+impl PsbEntry {
+    pub fn get_entry_by_path(&self, path: &str) -> Result<&PsbEntry> {
+        let path = path.split('.');
+        let mut entry = self;
+
+        for key in path {
+            let tmp = entry.get_dict()?;
+            entry = tmp.get(key).unwrap();
+        }
+
+        Ok(entry)
+    }
+}
+
+impl PsbEntry {
+    pub fn get_dict(&self) -> Result<&HashMap<String, PsbEntry>> {
+        match &self.obj {
+            PsbObject::Dict(v) => Ok(v),
+            _ => Err(anyhow!("Not a dict: {self:?}")),
+        }
+    }
+
+    pub fn get_list(&self) -> Result<&Vec<PsbEntry>> {
+        match &self.obj {
+            PsbObject::List(v) => Ok(v),
+            _ => Err(anyhow!("Not a List: {self:?}")),
+        }
+    }
+
+    #[cfg(not(target_pointer_width = "64"))]
+    pub fn get_number(&self) -> Result<i32> {
+        match &self.obj {
+            PsbObject::Zero => Ok(0),
+            PsbObject::Int32(v) => Ok(*v),
+            _ => Err(anyhow!("Not a i32: {self:?}"))
+        }
+    }
+
+    #[cfg(not(target_pointer_width = "64"))]
+    pub fn get_float(&self) -> Result<f32> {
+        match &self.obj {
+            PsbObject::Float(v) => Ok(*v),
+            _ => Err(anyhow!("Not a f32: {self:?}"))
+        }
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    pub fn get_number(&self) -> Result<i64> {
+        match &self.obj {
+            PsbObject::Int32(v) => Ok(*v as i64),
+            PsbObject::Int64(v) => Ok(*v),
+            _ => Err(anyhow!("Not a i64: {self:?}"))
+        }
+    }
+
+    #[cfg(target_pointer_width = "64")]
+    pub fn get_float(&self) -> Result<f64> {
+        match &self.obj {
+            PsbObject::Float(v) => Ok(*v as f64),
+            PsbObject::Double(v) => Ok(*v),
+            _ => Err(anyhow!("Not a f64: {self:?}"))
+        }
+    }
+}
+
+
 
 impl PsbObject {
     #[binrw::parser(reader, endian)]

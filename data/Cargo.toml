@@ -18,7 +18,7 @@ path = "src/lib.rs"
 anyhow = "1.0.75"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-tokio = { version = "1.32.0", features = ["full"] }
+#tokio = { version = "1.32.0", features = ["full"] }
 env_logger = "0.10.0"
 log = "0.4.20"
 cxx = { version = "1.0.107", features = ["c++20", "c++14", "c++17"] }
@@ -37,6 +37,7 @@ valued-enums = "1.1.9"
 itertools = "0.11.0"
 num-traits = "0.2.16"
 clap = { version = "4.4.4", features = ["derive"] }
+secrecy = "0.8.0"
 
 
 [workspace.dependencies.windows-sys]

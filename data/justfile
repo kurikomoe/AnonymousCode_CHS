@@ -1,2 +1,7 @@
 build:
   cargo build
+  cargo build --release
+
+
+test:
+  cargo test psb

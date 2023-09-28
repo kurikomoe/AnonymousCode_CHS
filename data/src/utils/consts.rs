@@ -1,0 +1,1 @@
+pub const LOGO: &str = "匿名者汉化组";

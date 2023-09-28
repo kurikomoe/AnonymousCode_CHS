@@ -11,6 +11,7 @@ use md5::digest::FixedOutput;
 use nom::AsBytes;
 
 use crate::data::context::Context;
+use crate::utils;
 
 #[binrw]
 #[br(little)]
@@ -26,20 +27,7 @@ impl Mdf {
     fn decrypt_data(&self, ctx: &mut Context, keep_header: bool) -> Result<Vec<u8>> {
         assert!(ctx.mdf_key.is_some());
 
-        // let br = Cursor::new(self.raw_data);
         let mut br = Cursor::new(&self.raw_data);
-
-        // By defaults, rust uses utf-8 encoding.
-        let key = ctx.mdf_key.as_ref().unwrap();
-        let (cow, encoding_used, had_errors) = UTF_8.encode(key);
-        assert!(!had_errors);
-
-        let mut hasher = Md5::new();
-        hasher.update(cow.as_ref());
-
-        let seed: [u32; 4] = Cursor::new(hasher.finalize()).read_le()?;
-
-        let mut rng = rand_mt::Mt19937GenRand32::new_with_key(seed);
 
         // FIXME(kuriko): use actual size
         let mut buf = Vec::with_capacity(self.raw_data.len());
@@ -50,8 +38,7 @@ impl Mdf {
             bw.write_le(&self.size)?;
         }
 
-        let mut keys = vec![0u8; ctx.mdf_key_length];
-        rng.fill_bytes(&mut keys);
+        let mut keys = utils::generate_xor_key_from_seed(ctx.mdf_key.as_ref().unwrap(), ctx.mdf_key_length)?;
 
         let mut idx = 0;
         while let Ok(data) = br.read_u8() {

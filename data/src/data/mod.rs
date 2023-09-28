@@ -10,6 +10,8 @@ pub mod context;
 pub mod mdf;
 pub mod psb;
 
+pub mod resource;
+pub mod helper;
 
 /// Read a byte as size, then read that many bytes and convert to u32 via little endian.
 pub fn read_and_unpack<const N: usize, T, R>(br: &mut R, n: usize) -> Result<T>
