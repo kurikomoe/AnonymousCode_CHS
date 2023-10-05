@@ -1,3 +1,4 @@
+#pragma comment(linker, "/subsystem:\"Windows\" /entry:\"mainCRTStartup\"")
 #include <windows.h>
 #include <string>
 #include <filesystem>

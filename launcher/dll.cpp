@@ -11,8 +11,11 @@
 #include "anonymouscode_data/src/lib.rs.h"
 
 const auto* LOG_FILE = L"log.txt";
-//const auto LOG_LEVEL = LogLevel::Debug;
+#ifdef DEBUG
+const auto LOG_LEVEL = LogLevel::Debug;
+#else
 const auto LOG_LEVEL = LogLevel::Silent;
+#endif
 
 void Init() {
     Logger::GetInstance().init(LOG_FILE, LOG_LEVEL);
@@ -35,6 +38,10 @@ void Init() {
     Game::HookMoviePlay::g_obj.InitHook();
 }
 
+void Destroy() {
+    kdata::release_resource();
+}
+
 
 [[maybe_unused]]
 BOOL WINAPI
@@ -43,9 +50,11 @@ DllMain(HINSTANCE hWnd, DWORD reason, LPVOID lpReserved) {
         case DLL_PROCESS_ATTACH:
             Init();
             break;
+        case DLL_PROCESS_DETACH:
+            Destroy();
+            break;
         case DLL_THREAD_ATTACH:
         case DLL_THREAD_DETACH:
-        case DLL_PROCESS_DETACH:
         default:
             break;
     }

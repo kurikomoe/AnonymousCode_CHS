@@ -57,15 +57,12 @@ namespace Game::HookFindEntry {
         std::string msFileName = BuildStdString(&This->msFileName);
         std::string msFolderName = BuildStdString(&This->msFolderName);
 
-        logger.Debug(
-                std::format(
-                        "[Raw]"
-                        "msPackName: {} msFileName: {} msFolderName: {} "
-                        "size: {}:{}, offset: {}:{}",
-                        msPackName, msFileName, msFolderName,
-                        This->uiSizeLow, This->uiSizeHigh,
-                        This->uiOffsetLow, This->uiOffsetHigh
-                ));
+        logger.Debug(std::format(
+                "[Raw] msPackName: {} msFileName: {} msFolderName: {} size: {}:{}, offset: {}:{}",
+                msPackName, msFileName, msFolderName,
+                This->uiSizeLow, This->uiSizeHigh,
+                This->uiOffsetLow, This->uiOffsetHigh
+        ));
 
         if (msFolderName.length() > 0) {
             auto base = msFolderName.substr(0, msFolderName.length() - 1);
@@ -75,7 +72,7 @@ namespace Game::HookFindEntry {
                 try {
                     auto ret = kdata::get_mapping_info(msFileName);
                     // Redirect the mapping
-                    This->uiOffsetHigh = kutils::IDX_MARK | ret.idx;
+                    This->uiOffsetHigh = kutils::UID_MARK | ret.uid;
                     This->uiOffsetLow = ret.offset;
                     This->uiSizeLow = ret.size & 0xFFFFFFFF;
                     This->uiSizeHigh = ret.size >> 32;

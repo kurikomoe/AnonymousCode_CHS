@@ -28,7 +28,7 @@ namespace kutils {
 #define OUT_OPT
 #endif
 
-    const uint32_t IDX_MARK = 1 << 31;
+    const uint32_t UID_MARK = 1 << 31;
 
     namespace data {
         struct Cache {

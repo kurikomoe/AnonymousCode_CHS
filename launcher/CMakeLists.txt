@@ -44,16 +44,12 @@ set(KDATA_INCLUDE_DIRS
         "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/cxxbridge"
 )
 
-set(KDATA_LIBS
-        "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/release/kdata.lib"
-        kernel32.lib
-        advapi32.lib
-        bcrypt.lib
-        ntdll.lib
-        userenv.lib
-        ws2_32.lib
-        msvcrt.lib
-)
+set(KDATA_LIBS kernel32.lib advapi32.lib bcrypt.lib ntdll.lib userenv.lib ws2_32.lib msvcrt.lib)
+if (CMAKE_BUILD_TYPE STREQUAL "Release")
+    set(KDATA_LIBS ${KDATA_LIBS} "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/release/kdata.lib")
+else()
+    set(KDATA_LIBS ${KDATA_LIBS} "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/debug/kdata.lib")
+endif()
 
 target_include_directories(anonymouscode_chs PRIVATE ${KDATA_INCLUDE_DIRS})
 target_link_libraries(anonymouscode_chs PRIVATE ${KDATA_LIBS})

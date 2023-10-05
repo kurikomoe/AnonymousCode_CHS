@@ -11,7 +11,7 @@ use anyhow::Result;
 use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt};
 use indexmap::IndexMap;
 
-use crate::utils::{self, consts, get_body_from_info};
+use crate::utils::{self, consts, get_body_from_info, get_entry_key};
 use crate::utils::{generate_xor_key_from_seed, xor_data};
 
 use super::helper::{KBuf, KString};
@@ -78,10 +78,10 @@ impl FileEntry {
 
 #[binrw]
 #[brw(little)]
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Resource {
-    #[bw(assert(is_finished == b"DAT1"))]
-    pub is_finished: [u8; 4],
+    #[bw(assert(is_finished.starts_with(consts::RESOURCE_DAT_MAGIC)))]
+    pub is_finished: [u8; consts::RESOURCE_DAT_MAGIC.len()],
 
     // "motion" => name idx
     #[brw(ignore)]
@@ -109,13 +109,26 @@ pub struct Resource {
     pub raw_data: (),
 }
 
+impl Default for Resource {
+    fn default() -> Self {
+        Self {
+            is_finished: [0u8; consts::RESOURCE_DAT_MAGIC.len()],
+            base_files: IndexMap::new(),
+            key: String::new(),
+            files: IndexMap::new(),
+            end_of_header: 0,
+            raw_data: (),
+        }
+    }
+}
+
 impl Resource {
     pub fn add_base(&mut self, base_file_name: String, base_file_path: PathBuf) {
         self.base_files.insert(base_file_name, base_file_path);
     }
 
     pub fn calc_offsets(&mut self) -> u32 {
-        self.is_finished.copy_from_slice(b"DAT1");
+        self.is_finished.copy_from_slice(consts::RESOURCE_DAT_MAGIC);
 
         let mut offset = 0;
         for v in self.files.values_mut() {
@@ -174,7 +187,8 @@ impl Resource {
 
     #[binrw::parser(reader, endian)]
     fn read_files(key: &String, cnt: usize) -> BinResult<IndexMap<String, FileEntry>> {
-        let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
+        let keys = generate_xor_key_from_seed(key, 114514)
+            .expect("Cannot generate key");
 
         let mut ret = IndexMap::new();
 
@@ -199,9 +213,9 @@ impl Resource {
         base_files: &IndexMap<String, PathBuf>,
         files: &IndexMap<String, FileEntry>,
     ) -> BinResult<()> {
-        let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
-
         for (file, entry) in files.iter() {
+            let keys = generate_xor_key_from_seed(&get_entry_key(key, entry.uid), 114514).expect("Cannot generate key");
+
             let FileEntry { uid, ty, base, name, offset, size, mut real_offset } = &entry;
 
             let mut file = if let Some(v) = base_files.get(&base.data) {

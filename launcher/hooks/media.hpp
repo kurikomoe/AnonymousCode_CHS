@@ -39,7 +39,10 @@ namespace Media::HookSHCreateMemStream {
             }
         }
 
-        auto ptr = const_cast<unsigned char*>(pInit) + 3;
+        auto ptr = const_cast<unsigned char*>(pInit);
+        *(ptr++) = 0;
+        *(ptr++) = 0;
+        *(ptr++) = 0;
         *ptr = size;
         logger.Debug(std::format(L"Fix movie header: 0x{:x}", size));
 

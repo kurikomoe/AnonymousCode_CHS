@@ -70,9 +70,14 @@ pub fn collect_files(base_name: &str, entry: &PsbEntry, mm: &mut Resource, file_
     Ok(())
 }
 
+pub fn get_entry_key(key: &str, uid: u32) -> std::string::String {
+    format!("key: {}, uid: {}", key, uid)
+}
+
 pub fn generate_xor_key_from_seed(key: &str, length: usize) -> Result<Vec<u8>> {
-    let (cow, encoding_used, had_errors) = encoding_rs::UTF_8.encode(key);
-    assert!(!had_errors);
+    // let (cow, encoding_used, had_errors) = encoding_rs::UTF_8.encode(key);
+    // let cow = key.as_bytes();
+    // assert!(!had_errors);
 
     let mut hasher = Md5::new();
     hasher.update(key);

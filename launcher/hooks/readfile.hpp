@@ -67,13 +67,13 @@ namespace File::HookReadFile {
                 filepath, offset_high, offset, nNumberOfBytesToRead));
 
         // Check media redirect
-        auto idx = offset_high;
+        auto uid = offset_high;
 
         kdata::MappingInfo mappingInfo{};
 
         try {
-            if (idx & kutils::IDX_MARK) {
-                mappingInfo = kdata::get_mapping_info_by_idx(idx & (kutils::IDX_MARK - 1));
+            if (uid & kutils::UID_MARK) {
+                mappingInfo = kdata::get_mapping_info_by_idx(uid & (kutils::UID_MARK - 1));
                 nNumberOfBytesToRead = mappingInfo.size;
 
                 auto resource_dat = kdata::get_resource_dat_file();
@@ -102,7 +102,9 @@ namespace File::HookReadFile {
                         resource_dat.c_str(), lpOverlapped->OffsetHigh, lpOverlapped->Offset, nNumberOfBytesToRead));
 
                 auto ret = orig_fn(hFileNew, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
-                kdata::decrypt_buffer(rust::Slice((uint8_t*)lpBuffer, (size_t)nNumberOfBytesToRead));
+                kdata::decrypt_buffer(
+                        rust::Slice((uint8_t*)lpBuffer, (size_t)nNumberOfBytesToRead),
+                        mappingInfo);
                 return ret;
             } else {
 

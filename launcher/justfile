@@ -1,10 +1,18 @@
 setup:
     cmake -A Win32  -B build .
 
-build:
+build-release:
     cmake --build build --config Release -j
 
-run: build
+build-debug:
+    cmake --build build --config Debug -j
+
+run: build-release
     cp build/release/anonymouscode_chs.dll ../../AC/
     cp build/release/game_chs.exe ../../AC/
+    ../../AC/game_chs.exe
+
+dev: build-debug
+    cp build/debug/anonymouscode_chs.dll ../../AC/
+    cp build/debbug/game_chs.exe ../../AC/
     ../../AC/game_chs.exe
