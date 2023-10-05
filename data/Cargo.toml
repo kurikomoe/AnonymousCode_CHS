@@ -2,15 +2,17 @@
 name = "anonymouscode_data"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
 name = "kpack"
-path = "src/bin/kpack.rs"
+path = "src/kpack.rs"
 
 [lib]
-name = "data"
-crate-type = ["cdylib", "lib"]
+name = "kdata"
+#crate-type = ["cdylib"]
+crate-type = ["staticlib"]
 bench = false
 path = "src/lib.rs"
 
@@ -18,7 +20,6 @@ path = "src/lib.rs"
 anyhow = "1.0.75"
 serde = { version = "1.0.188", features = ["derive"] }
 serde_json = "1.0.107"
-#tokio = { version = "1.32.0", features = ["full"] }
 env_logger = "0.10.0"
 log = "0.4.20"
 cxx = { version = "1.0.107", features = ["c++20", "c++14", "c++17"] }
@@ -32,7 +33,8 @@ byteorder = "1.4.3"
 rand_mt = "4.2.2"
 derivative = "2.2.0"
 dbg_hex = "0.1.1"
-flate2 = { version = "1.0.27", features = ["zlib-ng"] }
+# flate2 = { version = "1.0.27", features = ["zlib-ng"] }
+flate2 = { version = "1.0.27" }
 valued-enums = "1.1.9"
 itertools = "0.11.0"
 num-traits = "0.2.16"
@@ -41,9 +43,12 @@ secrecy = "0.8.0"
 regex = "1.9.5"
 indexmap = "2.0.1"
 once_cell = "1.18.0"
+serde_repr = "0.1.16"
+tempfile = "3.8.0"
+relative-path = "1.9.0"
 
 
-[workspace.dependencies.windows-sys]
+[dependencies.windows-sys]
 version = "0.48.0"
 features = [
     "Win32_System_Threading",
@@ -58,5 +63,8 @@ features = [
 [profile.release]
 opt-level = 3
 strip = "symbols"
-lto = true
+#lto = true
 panic = "abort"
+
+[build-dependencies]
+cxx-build = "1.0.107"

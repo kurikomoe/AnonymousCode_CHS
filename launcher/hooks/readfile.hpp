@@ -6,10 +6,14 @@
 #define HOOKTEST_READFILE_HPP
 
 #include <windows.h>
+#include <filesystem>
 
 #include "utils/kutils.h"
-#include "utils/log.hpp"
+#include "utils/log.h"
 #include "hooks/hookbase.h"
+
+#include "anonymouscode_data/src/lib.rs.h"
+#include "rust/cxx.h"
 
 namespace File::HookReadFile {
     using FnType = decltype(&ReadFile);
@@ -46,6 +50,9 @@ namespace File::HookReadFile {
 
         DWORD offset = 0;
         DWORD offset_high = 0;
+
+        OVERLAPPED localOverlapped {};
+
         if (lpOverlapped != nullptr) {
             offset = lpOverlapped->Offset;
             offset_high = lpOverlapped->OffsetHigh;
@@ -56,33 +63,54 @@ namespace File::HookReadFile {
         }
 
         logger.Debug(std::format(
-                L"[Raw]"
-                "File: {}, offset: {}:{}, size: {}",
+                L"[Raw] File: {}, offset: {}:{}, size: {}",
                 filepath, offset_high, offset, nNumberOfBytesToRead));
 
-        if (nNumberOfBytesToRead == 4937136) {
-            HANDLE hFileNew = CreateFileW(L"D:/Projects/1.Galgames/AnonymousCode/AC/motion_new.bin",
-                                          GENERIC_READ,
-                                          FILE_SHARE_READ,
-                                          nullptr,
-                                          OPEN_EXISTING,
-                                          FILE_ATTRIBUTE_NORMAL,
-                                          nullptr);
-            logger.Debug(std::format(
-                    "[Redirect]"
-                    "File: {}, offset: {}:{}, size: {}",
-                    R"(D:\Projects\1.Galgames\AnonymousCode\AC\motion_new.bin)",
-                    offset_high,
-                    offset,
-                    nNumberOfBytesToRead));
-            if (hFileNew == INVALID_HANDLE_VALUE) {
-                logger.Error(std::format(L"CreateFileA failed, fallback to original, errCode: {}", GetLastError()));
-                return orig_fn(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
+        // Check media redirect
+        auto idx = offset_high;
+
+        kdata::MappingInfo mappingInfo{};
+
+        try {
+            if (idx & kutils::IDX_MARK) {
+                mappingInfo = kdata::get_mapping_info_by_idx(idx & (kutils::IDX_MARK - 1));
+                nNumberOfBytesToRead = mappingInfo.size;
+
+                auto resource_dat = kdata::get_resource_dat_file();
+
+                HANDLE hFileNew = CreateFileA(resource_dat.c_str(),
+                                              GENERIC_READ,
+                                              FILE_SHARE_READ,
+                                              nullptr,
+                                              OPEN_EXISTING,
+                                              FILE_ATTRIBUTE_NORMAL,
+                                              nullptr);
+                if (hFileNew == INVALID_HANDLE_VALUE) {
+                    logger.Error(std::format(L"CreateFileA failed, fallback to original, errCode: {}", GetLastError()));
+                    return orig_fn(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
+                }
+                OVERLAPPED localOverlappedNew {};
+                if (lpOverlapped == nullptr) {
+                    lpOverlapped = &localOverlappedNew;
+                }
+
+                lpOverlapped->OffsetHigh = mappingInfo.offset >> 32;
+                lpOverlapped->Offset = mappingInfo.offset & 0xFFFFFFFF;
+
+                logger.Debug(std::format(
+                        "[Redir] File: {}, offset: {}:{}, size: {}",
+                        resource_dat.c_str(), lpOverlapped->OffsetHigh, lpOverlapped->Offset, nNumberOfBytesToRead));
+
+                auto ret = orig_fn(hFileNew, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
+                kdata::decrypt_buffer(rust::Slice((uint8_t*)lpBuffer, (size_t)nNumberOfBytesToRead));
+                return ret;
+            } else {
+
             }
-            return orig_fn(hFileNew, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
+        } catch (const std::exception &e) {
+//            logger.Debug(std::format(L"No mapping info for file {}", filepath));
         }
 
-        // Apply file redirection here
         return orig_fn(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped);
     }
 }

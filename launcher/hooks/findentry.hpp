@@ -8,9 +8,11 @@
 #include <Shlwapi.h>
 #include <windows.h>
 
-#include "utils/log.hpp"
+#include "utils/log.h"
 #include "hooks/hookbase.h"
 #include "hooks/data/data.h"
+
+#include "anonymouscode_data/src/lib.rs.h"
 
 namespace Game::HookFindEntry {
     using namespace data;
@@ -65,22 +67,40 @@ namespace Game::HookFindEntry {
                         This->uiOffsetLow, This->uiOffsetHigh
                 ));
 
-        if (msPackName.find("ac_title_sc.psb.m") != std::string::npos) {
-            logger.Debug("[REDIR] ac_title_sc.psb.m");
-            This->uiSizeLow = 4937136;
-            This->uiSizeHigh = 0;
-            This->uiOffsetLow = 329955128;
-            This->uiOffsetHigh = 0;
-            logger.Debug(
-                    std::format(
-                            "[New]"
-                            "msPackName: {} msFileName: {} msFolderName: {} "
-                            "size: {}:{}, offset: {}:{}",
-                            msPackName, msFileName, msFolderName,
-                            This->uiSizeLow, This->uiSizeHigh,
-                            This->uiOffsetLow, This->uiOffsetHigh
-                    ));
+        if (msFolderName.length() > 0) {
+            auto base = msFolderName.substr(0, msFolderName.length() - 1);
+            if (!msFileName.starts_with(msFolderName)) {
+                logger.Error(std::format("Inconsistent file path, msFolderName: {}, msFileName: {}", msFolderName, msFileName));
+            } else {
+                try {
+                    auto ret = kdata::get_mapping_info(msFileName);
+                    // Redirect the mapping
+                    This->uiOffsetHigh = kutils::IDX_MARK | ret.idx;
+                    This->uiOffsetLow = ret.offset;
+                    This->uiSizeLow = ret.size & 0xFFFFFFFF;
+                    This->uiSizeHigh = ret.size >> 32;
+                } catch (const std::exception &e) {
+//                    logger.Error(e.what());
+                }
+            }
         }
+
+//        if (msPackName.find("ac_title_sc.psb.m") != std::string::npos) {
+//            logger.Debug("[REDIR] ac_title_sc.psb.m");
+//            This->uiSizeLow = 4937136;
+//            This->uiSizeHigh = 0;
+//            This->uiOffsetLow = 329955128;
+//            This->uiOffsetHigh = 0;
+//            logger.Debug(
+//                    std::format(
+//                            "[New]"
+//                            "msPackName: {} msFileName: {} msFolderName: {} "
+//                            "size: {}:{}, offset: {}:{}",
+//                            msPackName, msFileName, msFolderName,
+//                            This->uiSizeLow, This->uiSizeHigh,
+//                            This->uiOffsetLow, This->uiOffsetHigh
+//                    ));
+//        }
     }
 }
 

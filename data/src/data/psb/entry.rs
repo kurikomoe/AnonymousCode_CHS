@@ -75,8 +75,7 @@ pub enum PsbObject {
         i32
     ),
 
-    #[cfg(target_pointer_width = "64")]
-    #[br(pre_assert(PsbEnum::NumberN4 <= ty && ty <= PsbEnum::NumberN8))]
+    #[br(pre_assert(PsbEnum::NumberN4 < ty && ty <= PsbEnum::NumberN8))]
     Int64(
         #[br(args((ty.value() - PsbEnum::NumberN0.value()) as usize))]
         #[br(parse_with = PsbObject::parser)]
@@ -91,7 +90,6 @@ pub enum PsbObject {
         f32
     ),
 
-    #[cfg(target_pointer_width = "64")]
     #[br(pre_assert(ty == PsbEnum::Double))]
     Double(
         #[br(args(8))]
@@ -116,11 +114,6 @@ pub enum PsbObject {
 
     #[br(pre_assert(ty == PsbEnum::Objects))]
     Dict(
-        // #[br(args{
-        //     shared: shared.clone()
-        // })]
-        // PsbDict
-
         #[br(args(shared.clone()))]
         #[br(parse_with = PsbObject::parse_dict)]
         HashMap<String, PsbEntry>,
@@ -158,38 +151,27 @@ impl PsbEntry {
         }
     }
 
-    #[cfg(not(target_pointer_width = "64"))]
-    pub fn get_number(&self) -> Result<i32> {
-        match &self.obj {
-            PsbObject::Zero => Ok(0),
-            PsbObject::Int32(v) => Ok(*v),
-            _ => Err(anyhow!("Not a i32: {self:?}"))
-        }
-    }
-
-    #[cfg(not(target_pointer_width = "64"))]
-    pub fn get_float(&self) -> Result<f32> {
-        match &self.obj {
-            PsbObject::Float(v) => Ok(*v),
-            _ => Err(anyhow!("Not a f32: {self:?}"))
-        }
-    }
-
-    #[cfg(target_pointer_width = "64")]
     pub fn get_number(&self) -> Result<i64> {
         match &self.obj {
+            PsbObject::Zero => Ok(0),
             PsbObject::Int32(v) => Ok(*v as i64),
             PsbObject::Int64(v) => Ok(*v),
             _ => Err(anyhow!("Not a i64: {self:?}"))
         }
     }
 
-    #[cfg(target_pointer_width = "64")]
     pub fn get_float(&self) -> Result<f64> {
         match &self.obj {
             PsbObject::Float(v) => Ok(*v as f64),
             PsbObject::Double(v) => Ok(*v),
             _ => Err(anyhow!("Not a f64: {self:?}"))
+        }
+    }
+
+    pub fn get_string(&self) -> Result<String> {
+        match &self.obj {
+            PsbObject::String(v) => Ok(v.to_owned()),
+            _ => Err(anyhow!("Not a String: {self:?}"))
         }
     }
 }

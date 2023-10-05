@@ -10,23 +10,50 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS CACHE STRING ON)
 # --------------------------------------------------------------
 project(HookTest VERSION 0.1.0 LANGUAGES C CXX)
 
+
 # Find detours
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 find_library(DETOURS_LIBRARY detours REQUIRED)
 
 # Main, aka target
-add_executable(launcher launcher.cpp)
-target_include_directories(launcher PUBLIC ${DETOURS_INCLUDE_DIRS})
-target_link_libraries(launcher PUBLIC ${DETOURS_LIBRARY})
+add_executable(game_chs
+        resources/app.o
+        launcher.cpp
+)
+target_include_directories(game_chs PUBLIC ${DETOURS_INCLUDE_DIRS})
+target_link_libraries(game_chs PUBLIC ${DETOURS_LIBRARY})
+
 
 find_package(nlohmann_json CONFIG REQUIRED)
 
-add_library(test SHARED dll.cpp
+add_library(anonymouscode_chs SHARED dll.cpp
         utils/kutils.cpp
         hooks/hookbase.h
+        utils/log.cpp
         #        config.cpp
 )
-target_include_directories(test PRIVATE ${DETOURS_INCLUDE_DIRS})
-target_include_directories(test PRIVATE utils hooks)
-target_link_libraries(test PRIVATE ${DETOURS_LIBRARY})
-target_link_libraries(test PRIVATE nlohmann_json::nlohmann_json)
+target_include_directories(anonymouscode_chs PRIVATE utils hooks)
+
+target_include_directories(anonymouscode_chs PRIVATE ${DETOURS_INCLUDE_DIRS})
+target_link_libraries(anonymouscode_chs PRIVATE ${DETOURS_LIBRARY})
+
+target_link_libraries(anonymouscode_chs PRIVATE nlohmann_json::nlohmann_json)
+
+set(KDATA_INCLUDE_DIRS
+        "${CMAKE_SOURCE_DIR}"
+        "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/cxxbridge"
+)
+
+set(KDATA_LIBS
+        "${CMAKE_SOURCE_DIR}/../data/target/i686-pc-windows-msvc/release/kdata.lib"
+        kernel32.lib
+        advapi32.lib
+        bcrypt.lib
+        ntdll.lib
+        userenv.lib
+        ws2_32.lib
+        msvcrt.lib
+)
+
+target_include_directories(anonymouscode_chs PRIVATE ${KDATA_INCLUDE_DIRS})
+target_link_libraries(anonymouscode_chs PRIVATE ${KDATA_LIBS})

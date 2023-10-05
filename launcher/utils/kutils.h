@@ -28,6 +28,8 @@ namespace kutils {
 #define OUT_OPT
 #endif
 
+    const uint32_t IDX_MARK = 1 << 31;
+
     namespace data {
         struct Cache {
             HANDLE hProcess;

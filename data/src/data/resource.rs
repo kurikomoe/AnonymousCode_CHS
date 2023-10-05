@@ -1,28 +1,37 @@
 #![allow(clippy::ptr_arg)]
 
+use std::fs::File;
+use std::io::{Read, Seek};
+use std::io::{BufWriter, Cursor};
+use std::io::SeekFrom;
+use std::mem::size_of_val;
+use std::path::PathBuf;
+
+use anyhow::Result;
+use binrw::{BinRead, BinReaderExt, BinResult, binrw, BinWrite, BinWriterExt};
+use indexmap::IndexMap;
+
 use crate::utils::{self, consts, get_body_from_info};
 use crate::utils::{generate_xor_key_from_seed, xor_data};
-use std::io::{Read, Seek};
-use std::io::SeekFrom;
-use anyhow::Result;
-use binrw::{binrw, BinRead, BinReaderExt, BinResult, BinWrite, BinWriterExt};
-use bytes::Bytes;
-use derivative::Derivative;
-use secrecy::Secret;
-use std::fs::File;
-use std::io::{BufReader, BufWriter, Cursor};
-use std::path::PathBuf;
-use indexmap::IndexMap;
 
 use super::helper::{KBuf, KString};
 
-
 static mut FILE_ENTRY_COUNTER: u32 = 0;
+
+#[binrw]
+#[derive(Debug, Clone, PartialEq)]
+#[brw(repr = u8)]
+pub enum FSType {
+    Embedded = 0,
+    Unpack,
+}
 
 #[binrw]
 #[derive(Debug, Clone)]
 pub struct FileEntry {
     pub uid: u32,
+
+    pub ty: FSType,
 
     pub base: KString,
 
@@ -35,18 +44,21 @@ pub struct FileEntry {
 }
 
 impl FileEntry {
-    pub fn new(base: String, name: String, offset: u32, size: u32) -> Self {
-        let idx = unsafe { FILE_ENTRY_COUNTER += 1; FILE_ENTRY_COUNTER};
+    pub fn new(ty: FSType, base: String, name: String, offset: u32, size: u32) -> Self {
+        let idx = unsafe {
+            FILE_ENTRY_COUNTER += 1;
+            FILE_ENTRY_COUNTER
+        };
 
         Self {
             uid: idx,
+            ty,
             name: name.into(),
             base: base.into(),
             offset,
             size,
             real_offset: 0,
         }
-
     }
 }
 
@@ -83,14 +95,17 @@ pub struct Resource {
     pub file_cnt: u32,
 
     /// motion/ac_logo.psb.m => FileEntry
-    #[bw(args(&key))]
+    #[bw(args(& key))]
     #[bw(write_with = Resource::write_files)]
-    #[br(args(&key, file_cnt as usize))]
+    #[br(args(& key, file_cnt as usize))]
     #[br(parse_with = Resource::read_files)]
     pub files: IndexMap<String, FileEntry>,
 
-    #[bw(args(&key, &base_files, &files))]
+    #[bw(write_with = Resource::write_current_position)]
+    pub end_of_header: u64,
+
     #[bw(write_with = Resource::write_data)]
+    #[bw(args(& key, & base_files, & files))]
     pub raw_data: (),
 }
 
@@ -141,7 +156,6 @@ impl Resource {
     fn write_files(files: &IndexMap<String, FileEntry>, key: &str) -> BinResult<()> {
         let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
 
-        let mut offset = 0;
         for (key, value) in files.iter() {
             let key = KString::from(key.clone());
             let mut buf = Vec::new();
@@ -183,37 +197,54 @@ impl Resource {
         _: &(),
         key: &String,
         base_files: &IndexMap<String, PathBuf>,
-        files: &IndexMap<String, FileEntry>
+        files: &IndexMap<String, FileEntry>,
     ) -> BinResult<()> {
         let keys = generate_xor_key_from_seed(key, 114514).expect("Cannot generate key");
 
         for (file, entry) in files.iter() {
-            let FileEntry { uid, base, name, offset, size, mut real_offset } = &entry;
+            let FileEntry { uid, ty, base, name, offset, size, mut real_offset } = &entry;
 
-            let path = base_files.get(&base.data).expect("base file not found");
-            let path = get_body_from_info(path).unwrap();
+            let mut file = if let Some(v) = base_files.get(&base.data) {
+                let path = get_body_from_info(v).unwrap();
+                File::open(&path)?
+            } else {
+                // Base file not record, thus the raw binary file
+                File::open(&base.data)?
+            };
 
-            let mut file = File::open(&path)?;
             file.seek(SeekFrom::Start(*offset as u64))?;
+
             let mut buf = vec![0u8; *size as usize];
             file.read_exact(&mut buf)?;
+
             xor_data(&mut buf, &keys);
             writer.write_le(&buf)?;
+
         }
 
+        Ok(())
+    }
+
+    #[binrw::writer(writer, endian)]
+    fn write_current_position(_: &u64) -> BinResult<()> {
+        let ret = writer.stream_position()? + std::mem::size_of::<u64>() as u64;
+        writer.write_le(&ret)?;
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use std::io::{BufWriter, Cursor};
+
+    use binrw::io::BufReader;
+
     use crate::data::context::Context;
     use crate::data::mdf::Mdf;
     use crate::data::psb::Psb;
-    use binrw::io::BufReader;
-    use std::io::{BufWriter, Cursor};
-    use dbg_hex::dbg_hex;
+    use crate::utils::file_lists::ListType;
+
+    use super::*;
 
     #[test]
     fn test_rw() -> Result<()> {
@@ -248,7 +279,7 @@ mod test {
 
         {
             resource.add_base("motion".to_string(), mdf_path);
-            utils::collect_files("motion", &psb.entries, &mut resource)?;
+            utils::collect_files("motion", &psb.entries, &mut resource, &mut ListType::All)?;
 
             let file = std::fs::File::create(&res_path)?;
             let mut writer = BufWriter::new(file);

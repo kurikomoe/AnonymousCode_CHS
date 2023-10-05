@@ -2,13 +2,16 @@
 // Created by Kuriko on 2023/9/15.
 //
 
-#ifndef HOOKTEST_LOG_HPP
-#define HOOKTEST_LOG_HPP
+#ifndef HOOKTEST_LOG_H
+#define HOOKTEST_LOG_H
 
 #include <iostream>
 #include <fstream>
 #include <chrono>
 #include <mutex>
+
+#include "rust/cxx.h"
+
 
 enum class LogLevel: int {
     Debug = 0,
@@ -103,7 +106,9 @@ public:
     void init(const std::wstring& filename, LogLevel level = LogLevel::Silent) {
         isInitialized = true;
         level_ = level;
-        log_file_.open(filename, std::ios::out);
+        if (level != LogLevel::Silent) {
+            log_file_.open(filename, std::ios::out);
+        }
     }
 
     template<typename T>
@@ -156,4 +161,19 @@ private:
     std::mutex log_mutex_;
 };
 
-#endif //HOOKTEST_LOG_HPP
+// exported functions for ffi
+
+namespace kdata {
+    void debug(rust::Str msg);
+
+    void trace(rust::Str msg);
+
+    void info(rust::Str msg);
+
+    void error(rust::Str msg);
+
+    void warn(rust::Str msg);
+}
+
+
+#endif //HOOKTEST_LOG_H

@@ -1,23 +1,53 @@
 use std::io::Cursor;
 use std::path::PathBuf;
-use log::debug;
-use anyhow::Result;
+use log::{debug, error, warn};
+use anyhow::{anyhow, Result};
 use binrw::BinReaderExt;
 use md5::{Digest, Md5};
 use md5::digest::FixedOutput;
 use regex::Regex;
 use crate::data::psb::{PsbEntry, PsbObject};
 use crate::data::psb::PsbObject::*;
-use crate::data::resource::{FileEntry, Resource};
+use crate::data::resource::{FileEntry, FSType, Resource};
 
 pub mod consts;
+pub mod file_lists;
+use file_lists::*;
 
-pub fn collect_files(base_name: &str, entry: &PsbEntry, mm: &mut Resource) -> Result<()> {
+pub fn collect_files(base_name: &str, entry: &PsbEntry, mm: &mut Resource, file_list: &mut ListType) -> Result<()> {
+    if file_list == &ListType::None { return Ok(()); }
+
+    let suffix = entry
+        .get_entry_by_path("expire_suffix_list")
+        .and_then(|e| e.get_list())
+        .and_then(|e| {
+            // FIXME(kuriko): assume that only one suffix exists.
+            assert_eq!(e.len(), 1);
+            e.get(0).ok_or(anyhow!("suffix not found"))
+        })
+        .and_then(|e| e.get_string())
+        .unwrap_or_else(|e| {
+            error!("{:?}", e);
+            "".to_owned()
+        });
+
     let item = entry.get_entry_by_path("file_info")?;
 
     let data = item.get_dict()?;
 
     for (file, value) in data.iter() {
+        // Concat file with extension
+        let file = format!("{}{}", file, suffix);
+        if let ListType::List(lst) = file_list {
+            let idx = lst.iter().position(|e| *e == file);
+            if let Some(idx) = idx {
+                lst.remove(idx);
+            } else {
+                warn!("Ignore file: {file}");
+                continue;
+            }
+        }
+
         let value = value.get_list()?;
         let [offset, length] = &value[0..=1] else { panic!("Not enough values") };
         let offset = offset.get_number()? as u32;
@@ -25,10 +55,16 @@ pub fn collect_files(base_name: &str, entry: &PsbEntry, mm: &mut Resource) -> Re
 
         let name = format!("{}/{}", base_name, file);
 
-        let file_entry = FileEntry::new(base_name.into(), file.into(), offset, size);
+        let file_entry = FileEntry::new(FSType::Embedded, base_name.into(), file, offset, size);
 
-        // mm.base_file.insert(name.clone(), base_name_idx);
         mm.files.insert(name.clone(), file_entry);
+    }
+
+    if let ListType::List(lst) = file_list {
+        if !lst.is_empty() {
+            error!("Some files are missing:");
+            lst.iter().for_each(|e| error!("- {}", e));
+        }
     }
 
     Ok(())

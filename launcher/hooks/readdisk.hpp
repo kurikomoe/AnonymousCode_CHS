@@ -8,7 +8,7 @@
 #include <Shlwapi.h>
 #include <windows.h>
 
-#include "utils/log.hpp"
+#include "utils/log.h"
 #include "hooks/hookbase.h"
 #include "hooks/data/data.h"
 

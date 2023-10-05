@@ -1,26 +1,39 @@
 #include <windows.h>
 #include <string>
+#include <filesystem>
 
 #include <detours/detours.h>
+#include <iostream>
+
+namespace fs = std::filesystem;
 
 
 int main() {
-    const char* dll_path = R"(D:\Projects\1.Galgames\AnonymousCode\Launcher\launcher\build\Debug\test.dll)";
-    const char* working_path = R"(D:\Projects\1.Galgames\AnonymousCode\AC)";
-    const char* target_exe_path = R"(D:\Projects\1.Galgames\AnonymousCode\AC\game.exe)";
+    WCHAR working_path[MAX_PATH];
+    GetModuleFileNameW(nullptr, working_path, MAX_PATH);
 
-    STARTUPINFOA si;
+    fs::path path(working_path);
+
+    std::wcout << path.parent_path() << std::endl;
+
+    LPCSTR dll_path = "anonymouscode_chs.dll";
+    LPCWSTR target_exe_path = L"game.exe";
+
+    STARTUPINFOW si;
     PROCESS_INFORMATION pi;
 
-    ZeroMemory(&si, sizeof(STARTUPINFOA));
-    ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
+    ZeroMemory(&si, sizeof(si));
+    ZeroMemory(&pi, sizeof(pi));
 
     si.cb = sizeof(si);
 
     DWORD dwFlags = CREATE_DEFAULT_ERROR_MODE | CREATE_SUSPENDED;
 
+    // Change the working directory to the directory containing the DLL.
+    SetCurrentDirectoryW(path.parent_path().wstring().c_str());
+
     SetLastError(0);
-    if (!DetourCreateProcessWithDllEx(
+    if (!DetourCreateProcessWithDllExW(
             target_exe_path,
             nullptr,
             nullptr,
@@ -28,7 +41,7 @@ int main() {
             true,
             dwFlags,
             nullptr,
-            working_path,
+            nullptr,
             &si,
             &pi,
             dll_path,

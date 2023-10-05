@@ -9,7 +9,7 @@
 #include <winternl.h>
 
 #include "kutils.h"
-#include "log.hpp"
+#include "log.h"
 
 namespace kutils {
 

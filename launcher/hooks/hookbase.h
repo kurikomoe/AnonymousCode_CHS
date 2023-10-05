@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <detours/detours.h>
 
-#include "log.hpp"
+#include "log.h"
 #include "kutils.h"
 
 template<typename HookFnType>

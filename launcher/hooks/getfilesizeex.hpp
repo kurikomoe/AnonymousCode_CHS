@@ -8,7 +8,7 @@
 #include <windows.h>
 
 #include "utils/kutils.h"
-#include "utils/log.hpp"
+#include "utils/log.h"
 #include "hooks/hookbase.h"
 
 

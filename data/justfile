@@ -1,21 +1,28 @@
-pack_test:
-  cargo run -- \
+pack: build
+  target/i686-pc-windows-msvc/release/kpack.exe \
     --key 5fWhAHt4zVn2X  --encrypt-key "「How's it going to end?」" \
+    -f ./resources/file_list.json \
     ./resources/motion_info.psb.m \
     ./resources/scenario_info.psb.m \
     ./resources/config_info.psb.m \
-    ./resources/script_info.psb.m
+    ./resources/script_info.psb.m \
+    # ./resources/movies/acb_001a.mzv \
+    # ./resources/movies/ac_prologue01_en.mzv \
+    # ./resources/movies/ac_prologue01.mzv \
+    # ./resources/movies/ac_prologue02_en.mzv \
+    # ./resources/movies/ac_prologue02.mzv \
+    # ./resources/movies/normal_end.mzv \
+    # ./resources/movies/op_en.mzv \
+    # ./resources/movies/op.mzv \
+    # ./resources/movies/op_silent.mzv \
+    # ./resources/movies/true_end.mzv
+  cp resource.bin ../../AC/
 
-pack:
-  cargo run --release -- \
-    --key 5fWhAHt4zVn2X  --encrypt-key "「How's it going to end?」" \
-    ./resources/motion_info.psb.m \
-    ./resources/scenario_info.psb.m \
-    ./resources/config_info.psb.m \
-    ./resources/script_info.psb.m
 
 build:
+  cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release
   cargo build
+
 
 release:
   cargo +nightly build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort --release
