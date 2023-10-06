@@ -7,6 +7,7 @@
 #include "hooks/findentry.hpp"
 #include "hooks/readdisk.hpp"
 #include "hooks/movieplay.hpp"
+#include "hooks/createwindowexa.hpp"
 
 #include "anonymouscode_data/src/lib.rs.h"
 
@@ -30,8 +31,11 @@ void Init() {
     }
 
     Media::HookSHCreateMemStream::g_obj.InitHook();
+
     File::HookReadFile::g_obj.InitHook();
 //    File::HookGetFilesizeEx::g_obj.InitHook();
+
+    Window::HookCreateWindowExA::g_obj.InitHook();
 
     Game::HookFindEntry::g_obj.InitHook();
     Game::HookReadDisk::g_obj.InitHook();

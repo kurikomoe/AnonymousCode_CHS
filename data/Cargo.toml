@@ -63,7 +63,7 @@ features = [
 [profile.release]
 opt-level = 3
 strip = "symbols"
-#lto = true
+lto = true
 panic = "abort"
 
 [build-dependencies]
