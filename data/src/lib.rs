@@ -3,11 +3,14 @@
 #![feature(generic_const_exprs)]
 #![feature(const_size_of_val)]
 
-use std::env::temp_dir;
+use std::env::{temp_dir, VarError};
 use std::ffi::c_char;
 use std::io::{BufWriter, Read, Seek, SeekFrom, Write};
 use std::os::windows::fs::OpenOptionsExt;
+use std::os::windows::prelude::MetadataExt;
 use std::path::PathBuf;
+use std::thread::sleep;
+use std::time::Duration;
 
 use anyhow::{anyhow, Result};
 use binrw::BinRead;
@@ -19,7 +22,8 @@ use nom::HexDisplay;
 use once_cell::sync::OnceCell;
 use relative_path::{PathExt, RelativePath, RelativePathBuf};
 use tempfile::TempDir;
-use windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_HIDDEN;
+use windows_sys::Win32::Foundation::{FALSE, GetLastError, SetLastError};
+use windows_sys::Win32::Storage::FileSystem::{FILE_ATTRIBUTE_HIDDEN, FILE_ATTRIBUTE_SYSTEM, FILE_ATTRIBUTE_TEMPORARY, SetFileAttributesA};
 
 
 use crate::data::resource::{FileEntry, FSType, Resource};
@@ -62,6 +66,8 @@ pub mod ffi {
         pub fn decrypt_buffer(buf: &mut [u8], info: &MappingInfo) -> Result<()>;
         pub fn get_unpack_dir() -> String;
         pub fn locate_movie(filename: String) -> Result<String>;
+
+        pub fn is_debug_mode() -> bool;
     }
 
     unsafe extern "C++" {
@@ -85,10 +91,35 @@ static mut UNPACK_DIR: OnceCell<TempDir> = OnceCell::new();
 pub fn load_resource_dat() -> RetCode {
     unsafe {
         let Ok(_) = UNPACK_DIR.set({
+            let tmp = PathBuf::from("windata/.ac_movie_sc");
+            if tmp.exists() {
+                ffi::debug("Remove old .ac_movie_ac folder");
+                std::fs::remove_dir_all(tmp).ok();
+            }
+
             let Ok(tmp) = tempfile::Builder::new()
+                .prefix(".ac_movie_sc")
+                .suffix("")
+                .rand_bytes(0)
                 .tempdir_in("windata")
                 else { return RetCode::CreateTempDirFailed; };
             ffi::debug(&format!("Tmp: {:?}", tmp.path()));
+            // wait a little bit to make sure folder created.
+            let cur = std::env::current_dir().unwrap();
+            SetLastError(0);
+            for i in 0..10 {
+                let rel = tmp.path().relative_to(&cur).unwrap();
+                ffi::debug(&format!("set file attribution: {:?}", rel));
+                if FALSE == SetFileAttributesA(
+                    rel.to_string().as_ptr(),
+                    FILE_ATTRIBUTE_HIDDEN|FILE_ATTRIBUTE_SYSTEM
+                ) {
+                    ffi::debug(&format!("set file attribution failed: {:?}, err code: {}, retrying", tmp.path(), GetLastError()));
+                    sleep(Duration::from_millis(200));
+                } else {
+                    break;
+                };
+            }
             tmp
         }) else { return RetCode::GlobalInitUnpackDirFailed; };
     }
@@ -111,6 +142,10 @@ pub fn load_resource_dat() -> RetCode {
             RetCode::ParseResourceFailed
         }
     }
+}
+
+pub fn is_debug_mode() -> bool {
+    std::env::var("KDEBUG").is_ok()
 }
 
 pub fn release_resource() -> Result<()> {
@@ -185,7 +220,7 @@ pub fn locate_movie(filename: String) -> Result<String> {
     //     Err(anyhow!("Movie file Not Found"))
     // }
 
-    let mut tmp = unsafe { UNPACK_DIR.get().unwrap().path() };
+    let mut tmp = unsafe { UNPACK_DIR.get().unwrap().path().to_path_buf() };
     let mut file = tmp.to_path_buf();
 
     let res_dat = get_resource_dat_file();
@@ -201,8 +236,6 @@ pub fn locate_movie(filename: String) -> Result<String> {
     let mut br = BufReader::new(&mut input);
     br.seek(SeekFrom::Start(res.end_of_header + entry.real_offset as u64))?;
 
-    let mut buf = vec![0u8; entry.size as usize];
-
     let mut hasher = Md5::new();
     hasher.update(&filename);
     let result = format!("{:x}", hasher.finalize());
@@ -210,7 +243,9 @@ pub fn locate_movie(filename: String) -> Result<String> {
     file.push(&result);
     file.set_extension("mzv");
 
-    if !file.exists() {
+    if !file.exists()
+        || file.metadata().map(|m| m.file_size()).unwrap_or(0) != entry.size as u64 {
+        let mut buf = vec![0u8; entry.size as usize];
         br.read_exact(&mut buf)?;
         xor_data(&mut buf, &keys);
         buf[0..4].copy_from_slice(b"MZV\0");
@@ -224,10 +259,17 @@ pub fn locate_movie(filename: String) -> Result<String> {
 
         let mut bw = BufWriter::new(out);
         bw.write_all(&buf)?;
+    } else {
+        ffi::debug(&format!("Using cached file: {:?}", &file));
     }
 
-    ffi::debug(&format!("Locate movie: {:?} -> {:?}", &filename, &file));
-    Ok(file.relative_to(tmp.parent().unwrap())?.to_string())
+    // tmp.push("windata");
+    let mut base = tmp.parent().unwrap().to_path_buf();
+    // base.push("windata");
+
+    let rel = file.relative_to(base)?.to_string();
+    ffi::debug(&format!("Locate movie: {:?} -> {:?} rel: {:?}", &filename, &file, &rel));
+    Ok(rel)
 }
 
 pub fn say_hello() -> RetCode {

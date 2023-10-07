@@ -10,7 +10,7 @@ build-debug:
 run: build-release
     cp build/release/anonymouscode_chs.dll ../../AC/
     cp build/release/game_chs.exe ../../AC/
-    ../../AC/game_chs.exe
+    KDEBUG=ON ../../AC/game_chs.exe
 
 dev: build-debug
     cp build/debug/anonymouscode_chs.dll ../../AC/

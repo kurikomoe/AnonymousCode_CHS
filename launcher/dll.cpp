@@ -11,14 +11,12 @@
 
 #include "anonymouscode_data/src/lib.rs.h"
 
-const auto* LOG_FILE = L"log.txt";
-#ifdef DEBUG
-const auto LOG_LEVEL = LogLevel::Debug;
-#else
-const auto LOG_LEVEL = LogLevel::Silent;
-#endif
-
 void Init() {
+    bool is_debug = kdata::is_debug_mode();
+
+    const auto* LOG_FILE = L"log.txt";
+    const auto LOG_LEVEL = is_debug ? LogLevel::Debug : LogLevel::Silent;
+
     Logger::GetInstance().init(LOG_FILE, LOG_LEVEL);
 
     Logger::Info("AnonymousCode CHS Started");
