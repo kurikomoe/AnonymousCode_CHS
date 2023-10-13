@@ -28,7 +28,7 @@ namespace Game::HookFindEntry {
 
     static class FindEntryHook : public HookAddressBase<TFnType, HFnType> {
     public:
-        FindEntryHook() : HookAddressBase("game.exe", 0x2491a0) {
+        FindEntryHook() : HookAddressBase(nullptr, 0x2491a0) {
             logger.Debug(L"Init");
         }
 

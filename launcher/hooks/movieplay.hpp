@@ -26,7 +26,7 @@ namespace Game::HookMoviePlay {
 
     static class MoviePlayHook : public HookAddressBase<TFnType, HFnType> {
     public:
-        MoviePlayHook() : HookAddressBase("game.exe", 0x11c1e0) {
+        MoviePlayHook() : HookAddressBase(nullptr, 0x11c1e0) {
             logger.Debug(L"Init");
         }
 

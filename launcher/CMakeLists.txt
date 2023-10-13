@@ -10,13 +10,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS CACHE STRING ON)
 # --------------------------------------------------------------
 project(HookTest VERSION 0.1.0 LANGUAGES C CXX)
 
-
 # Find detours
 find_path(DETOURS_INCLUDE_DIRS "detours/detours.h")
 find_library(DETOURS_LIBRARY detours REQUIRED)
 
 # Main, aka target
-add_executable(game_chs
+add_executable(game_chs WIN32
         resources/app.o
         launcher.cpp
 )

@@ -1,0 +1,1 @@
+start /b game_chs.exe --fullscreen=0 --window-size=800,600

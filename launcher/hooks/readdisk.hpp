@@ -26,7 +26,7 @@ namespace Game::HookReadDisk {
 
     static class FindEntryHook : public HookAddressBase<TFnType, HFnType> {
     public:
-        FindEntryHook() : HookAddressBase("game.exe", 0x24d590) { }
+        FindEntryHook() : HookAddressBase(nullptr, 0x24d590) { }
 
         void InitHook() override {
             return;
