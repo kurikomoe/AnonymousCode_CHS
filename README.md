@@ -1,18 +1,12 @@
-## Design
+Anonymous;Code CHS patch
 
-### Launcher
+only source code, no resource files.
 
-What should launcher do:
-1. Read the config and modify the config based on the current environment
-2. Launch the application executable.
-3. Inject the payload dll into the executable
-4. Pass the config to dll
+Due to the request from the leader of the localization team, resource.bin uses simple XOR encryption to protect image and text resources.
 
 
-### Data
+Related projects:
 
-What should the data.dll to do:
-1. Get data from launcher
-   1. Through named pipe 
-   2. Through exported function
-2. Perform injections
+https://github.com/UlyssesWu/FreeMote: The PSB parser is written by referring to this.
+
+Thanks to [@Dir-A](https://github.com/Dir-A) for hooking suggestions.
